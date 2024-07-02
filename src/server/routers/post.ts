@@ -1,13 +1,13 @@
-/**
- *
- * This is an example router, you can delete this file and then update `../pages/api/trpc/[trpc].tsx`
- */
-import type { Post } from '@prisma/client';
+import { router, publicProcedure } from '../trpc';
+import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { prisma } from '../prisma';
-import { z } from 'zod';
-import { authedProcedure, publicProcedure, router } from '../trpc';
+import type { Post } from '@prisma/client';
+import OpenAI from 'openai';
+
+// Define OpenAI instance
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface MyEvents {
   add: (data: Post) => void;
@@ -25,14 +25,10 @@ declare interface MyEventEmitter {
 
 class MyEventEmitter extends EventEmitter {}
 
-// In a real app, you'd probably use Redis or something
 const ee = new MyEventEmitter();
 
-// who is currently typing, key is `name`
-const currentlyTyping: Record<string, { lastTyped: Date }> =
-  Object.create(null);
+const currentlyTyping: Record<string, { lastTyped: Date }> = Object.create(null);
 
-// every 1s, clear old "isTyping"
 const interval = setInterval(() => {
   let updated = false;
   const now = Date.now();
@@ -51,7 +47,7 @@ process.on('SIGTERM', () => {
 });
 
 export const postRouter = router({
-  add: authedProcedure
+  add: publicProcedure
     .input(
       z.object({
         id: z.string().uuid().optional(),
@@ -59,7 +55,7 @@ export const postRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { name } = ctx.user;
+      const { name } = ctx.session?.user;
       const post = await prisma.post.create({
         data: {
           ...input,
@@ -73,10 +69,10 @@ export const postRouter = router({
       return post;
     }),
 
-  isTyping: authedProcedure
+  isTyping: publicProcedure
     .input(z.object({ typing: z.boolean() }))
     .mutation(({ input, ctx }) => {
-      const { name } = ctx.user;
+      const { name } = ctx.session?.user;
       if (!input.typing) {
         delete currentlyTyping[name];
       } else {
@@ -110,7 +106,6 @@ export const postRouter = router({
       let nextCursor: typeof cursor | null = null;
       if (items.length > take) {
         const prev = items.shift();
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         nextCursor = prev!.createdAt;
       }
       return {
@@ -148,4 +143,16 @@ export const postRouter = router({
       };
     });
   }),
+
+  sendMessage: publicProcedure
+    .input(z.object({ message: z.string() }))
+    .mutation(async ({ input }) => {
+      const completion = await openai.chat.completions.create({
+        messages: [{ role: "user", content: input.message }],
+        model: "gpt-3.5-turbo",
+      });
+
+      const responseContent = completion.choices?.[0]?.message?.content?.trim() ?? "No response from GPT";
+      return { response: responseContent };
+    }),
 });

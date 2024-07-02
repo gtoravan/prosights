@@ -9,8 +9,8 @@ const config = {
   },
   publicRuntimeConfig: {
     // Will be available on both server and client
-    APP_URL: process.env.APP_URL,
-    WS_URL: process.env.WS_URL,
+    APP_URL: process.env.APP_URL || 'http://localhost:3000',
+    WS_URL: process.env.WS_URL || 'ws://localhost:3002',
   },
   /** We run eslint as a separate task in CI */
   eslint: { ignoreDuringBuilds: !!process.env.CI },
