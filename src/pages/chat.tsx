@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { trpc } from '../utils/trpc';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
@@ -50,12 +50,32 @@ const ChatPage = () => {
   const { data: session } = useSession();
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [documents, setDocuments] = useState<{ name: string; path: string; }[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [content, setContent] = useState<string | ArrayBuffer | null>(null);
+
   const sendMessage = trpc.post.sendMessage.useMutation();
+  const uploadMutation = trpc.post.upload.useMutation();
+  const listDocuments = trpc.post.listDocuments.useQuery();
+
+  useEffect(() => {
+    if (listDocuments.data) {
+      setDocuments(listDocuments.data);
+    }
+  }, [listDocuments.data]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      listDocuments.refetch();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [listDocuments]);
 
   const handleSendMessage = async () => {
     if (message.trim() === '') return;
 
-    const newMessage = { sender: 'user', message };
+    const newMessage: ChatMessage = { sender: 'user', message };
     setChatHistory([...chatHistory, newMessage]);
 
     const response = await sendMessage.mutateAsync({ message });
@@ -68,7 +88,30 @@ const ChatPage = () => {
     setMessage('');
   };
 
-  if (!session) {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setContent(event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (file && content) {
+      const base64Content = (content as string).split(',')[1]; // Remove data URL prefix
+      await uploadMutation.mutateAsync({ filename: file.name, content: base64Content });
+      // Refresh document list
+      await listDocuments.refetch();
+    }
+  };
+
+  if (!session?.user) {
     return (
       <div className="flex h-[100dvh] items-center justify-center">
         <div className="text-center">
@@ -79,8 +122,8 @@ const ChatPage = () => {
     );
   }
 
-  const userName = session.user.name;
-  const userEmail = session.user.email;
+  const userName = session.user.name ?? 'User';
+  const userEmail = session.user.email ?? 'No email';
 
   return (
     <div className="flex h-[100dvh] w-full flex-col">
@@ -138,38 +181,27 @@ const ChatPage = () => {
         <div className="w-[300px] border-l bg-background p-4 md:p-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold">Uploaded Documents</h3>
-            <Button variant="ghost" size="icon">
+            <input type="file" onChange={handleFileChange} />
+            <Button onClick={handleUpload} variant="ghost" size="icon">
               <PlusIcon className="h-5 w-5" />
               <span className="sr-only">Add document</span>
             </Button>
           </div>
           <div className="mt-4 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-                <FileIcon className="h-5 w-5 text-muted-foreground" />
+            {documents.map((doc, index) => (
+              <div className="flex items-center gap-3" key={index}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                  <FileIcon className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">{doc.name}</div>
+                </div>
+                <Button variant="ghost" size="icon">
+                  <DownloadIcon className="h-5 w-5" />
+                  <span className="sr-only">Download document</span>
+                </Button>
               </div>
-              <div className="flex-1">
-                <div className="font-medium">Airplane Turbulence Explained</div>
-                <div className="text-sm text-muted-foreground">Last updated 2 days ago</div>
-              </div>
-              <Button variant="ghost" size="icon">
-                <DownloadIcon className="h-5 w-5" />
-                <span className="sr-only">Download document</span>
-              </Button>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-                <FileIcon className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium">React Hooks Cheatsheet</div>
-                <div className="text-sm text-muted-foreground">Last updated 1 week ago</div>
-              </div>
-              <Button variant="ghost" size="icon">
-                <DownloadIcon className="h-5 w-5" />
-                <span className="sr-only">Download document</span>
-              </Button>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -202,7 +234,6 @@ const ChatPage = () => {
     </div>
   );
 };
-
 function ArrowUpIcon(props) {
   return (
     <svg

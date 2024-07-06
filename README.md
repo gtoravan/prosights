@@ -65,3 +65,21 @@ pnpm test:e2e   # runs e2e tests
 ---
 
 Created by [@alexdotjs](https://twitter.com/alexdotjs).
+
+CHROMA DB:- 
+
+docker pull chromadb/chroma 
+
+gauravtoravane@Gauravs-Air trpc-prisma-websockets-starter % docker ps
+CONTAINER ID   IMAGE             COMMAND                  CREATED             STATUS             PORTS                    NAMES
+12245060ccd9   chromadb/chroma   "/docker_entrypoint.…"   About an hour ago   Up About an hour   0.0.0.0:8000->8000/tcp   stupefied_merkle
+27d11603ca0c   postgres:13       "docker-entrypoint.s…"   5 days ago          Up About an hour   0.0.0.0:5932->5432/tcp   trpc-prisma-websockets-starter-postgres-1
+gauravtoravane@Gauravs-Air trpc-prisma-websockets-starter % docker pause 12245060ccd9
+12245060ccd9
+gauravtoravane@Gauravs-Air trpc-prisma-websockets-starter % docker ps                
+CONTAINER ID   IMAGE             COMMAND                  CREATED             STATUS                      PORTS                    NAMES
+12245060ccd9   chromadb/chroma   "/docker_entrypoint.…"   About an hour ago   Up About an hour (Paused)   0.0.0.0:8000->8000/tcp   stupefied_merkle
+27d11603ca0c   postgres:13       "docker-entrypoint.s…"   5 days ago          Up About an hour            0.0.0.0:5932->5432/tcp   trpc-prisma-websockets-starter-postgres-1
+gauravtoravane@Gauravs-Air trpc-prisma-websockets-starter % docker run -d -p 8000:8000 chromadb/chroma 
+
+
