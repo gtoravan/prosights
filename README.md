@@ -1,5 +1,9 @@
 # Bumble Investors Q&A Portal with RAG
 
+Portal URL - http://localhost:3000/
+
+ChromaDB URL - http://localhost:8000/
+
 ## Features
 
 - 🧙 E2E type safety with [tRPC](https://trpc.io)
