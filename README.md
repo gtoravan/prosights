@@ -38,7 +38,7 @@ docker run -d -p 8000:8000 chromadb/chroma
 
 First time application run:-
 ```bash
-cd trpc-prisma-websockets-starter
+cd prosights
 pnpm i
 pnpm dx
 ```
