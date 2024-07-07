@@ -19,7 +19,7 @@ ChromaDB URL - http://localhost:8000/
 
 ![BUMBLE DEMO](Bumble.gif)
 
-#### Full Demo here with code explanation on [Youtube]()
+#### Full Demo here with code explanation on [Youtube](https://youtu.be/jBMlayiUklU)
 
 ## History/Work Diary
 
