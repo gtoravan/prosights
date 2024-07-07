@@ -8,6 +8,7 @@ import { ChromaClient, OpenAIEmbeddingFunction } from 'chromadb';
 import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { prisma } from '../prisma';
+import mammoth from 'mammoth'; // for DOCX files
 import type { Post } from '@prisma/client';
 
 // Define OpenAI instance
@@ -68,30 +69,41 @@ async function getCollectionSize(collection) {
   return allDocuments.ids.length;
 }
 
-async function generateEmbeddingForQuery(query: string) {
+async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const embedding = await openai.embeddings.create({
-      model: "text-embedding-ada-002",
-      input: query,
-    });
-    return embedding.data[0].embedding;
+    const data = await pdf(buffer);
+    return data.text;
   } catch (error) {
-    console.error(`Failed to generate embedding for query: ${query}`, error);
-    throw error;
+    console.error('Failed to extract text from PDF', error);
+    throw new Error('Failed to extract text from PDF');
   }
 }
 
-async function queryCollection(collection, queryEmbedding, nResults = 3) {
+async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   try {
-    console.log('Querying collection with embedding:', queryEmbedding);
-    const results = await collection.query({
-      query_embeddings: queryEmbedding,
-      n_results: nResults,
-    });
-    return results;
+    const { value } = await mammoth.extractRawText({ buffer });
+    return value;
   } catch (error) {
-    console.error('Failed to query collection:', error);
-    throw error;
+    console.error('Failed to extract text from DOCX', error);
+    throw new Error('Failed to extract text from DOCX');
+  }
+}
+
+async function extractTextFromTXT(buffer: Buffer): Promise<string> {
+  return buffer.toString('utf-8');
+}
+
+async function extractText(filename: string, buffer: Buffer): Promise<string> {
+  const ext = path.extname(filename).toLowerCase();
+  switch (ext) {
+    case '.pdf':
+      return await extractTextFromPDF(buffer);
+    case '.docx':
+      return await extractTextFromDOCX(buffer);
+    case '.txt':
+      return await extractTextFromTXT(buffer);
+    default:
+      throw new Error(`Unsupported file type: ${ext}`);
   }
 }
 
@@ -147,14 +159,13 @@ export const postRouter = router({
         await fs.writeFile(filePath, content, 'base64');
         const dataBuffer = await fs.readFile(filePath);
 
-        // Extract text from PDF
+        // Extract text from file
         let documentContent;
         try {
-          const data = await pdf(dataBuffer);
-          documentContent = data.text;
+          documentContent = await extractText(filename, dataBuffer);
         } catch (error) {
-          console.error(`Failed to extract text from PDF: ${filename}`, error);
-          throw new Error(`Failed to extract text from PDF: ${filename}`);
+          console.error(`Failed to extract text from file: ${filename}`, error);
+          throw new Error(`Failed to extract text from file: ${filename}`);
         }
 
         // Remove temporary file
@@ -205,23 +216,10 @@ export const postRouter = router({
     .mutation(async ({ input }) => {
       const collection = await collectionPromise;
 
-      // Generate embedding for the query
-      // const embedding = await openai.embeddings.create({
-      //   model: "text-embedding-ada-002",
-      //   input: input.message,
-      // });
-      //
-      // const queryEmbedding = embedding.data[0].embedding;
-      //
-      // if (!queryEmbedding) {
-      //   throw new Error("Failed to generate query embedding");
-      // }
-
       // Perform semantic search
-
       const results = await collection.query({
         queryTexts: [input.message], // Chroma will embed this for you
-        nResults: 2, // how many results to return
+        nResults: 3, // how many results to return
       });
 
       const topDocuments = results.documents.flat();

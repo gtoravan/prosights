@@ -17,10 +17,10 @@ if (useMockProvider) {
   providers.push(
     CredentialsProvider({
       id: 'github',
-      name: 'Mocked GitHub',
+      name: 'Mocked Portal',
       async authorize(credentials) {
         if (credentials) {
-          const name = credentials.name;
+          const name = credentials.Name;
           return {
             id: name,
             name: name,
@@ -30,7 +30,7 @@ if (useMockProvider) {
         return null;
       },
       credentials: {
-        name: { type: 'test' },
+        Name: { type: 'test' },
       },
     }),
   );

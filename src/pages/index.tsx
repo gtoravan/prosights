@@ -16,9 +16,19 @@ const ChatPage = () => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [documents, setDocuments] = useState<{ name: string; path: string; }[]>([]);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'inProgress' | 'success' | 'error'>('idle');
 
   const sendMessage = trpc.post.sendMessage.useMutation();
-  const uploadMutation = trpc.post.upload.useMutation();
+  const uploadMutation = trpc.post.upload.useMutation({
+    onSuccess: () => {
+      setUploadStatus('success');
+      setTimeout(() => setUploadStatus('idle'), 3000); // Hide success message after 3 seconds
+    },
+    onError: () => {
+      setUploadStatus('error');
+      setTimeout(() => setUploadStatus('idle'), 3000); // Hide error message after 3 seconds
+    }
+  });
   const listDocuments = trpc.post.listDocuments.useQuery();
 
   useEffect(() => {
@@ -57,6 +67,7 @@ const ChatPage = () => {
   };
 
   const handleUpload = async () => {
+    setUploadStatus('inProgress');
     const fileContents = await Promise.all(filesToUpload.map(file => {
       return new Promise<{ filename: string, content: string }>((resolve, reject) => {
         const reader = new FileReader();
@@ -105,14 +116,6 @@ const ChatPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/*<Button variant="ghost" size="icon">*/}
-          {/*  <PaperclipIcon className="h-5 w-5" />*/}
-          {/*  <span className="sr-only">Attach file</span>*/}
-          {/*</Button>*/}
-          {/*<Button variant="ghost" size="icon">*/}
-          {/*  <MoveHorizontalIcon className="h-5 w-5" />*/}
-          {/*  <span className="sr-only">More options</span>*/}
-          {/*</Button>*/}
           <Button onClick={() => signOut()}>Logout</Button>
         </div>
       </header>
@@ -120,9 +123,7 @@ const ChatPage = () => {
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {chatHistory.map((chat, index) => (
             <div
-              className={`flex items-start gap-4 ${
-                chat.sender === 'user' ? 'justify-end' : ''
-              }`}
+              className={`flex items-start gap-4 ${chat.sender === 'user' ? 'justify-end' : ''}`}
               key={index}
             >
               {chat.sender === 'bot' && (
@@ -146,14 +147,44 @@ const ChatPage = () => {
         </div>
         <div className="w-[400px] border-l bg-background p-4 md:p-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold">Uploaded Documents</h3>
+            <h3 className="text-lg font-bold">Upload Documents</h3>
             <input type="file" multiple onChange={handleFileChange} />
-            {/*<Button onClick={handleUpload} variant="ghost" size="icon">*/}
-            {/*  <PlusIcon className="h-5 w-5" />*/}
-            {/*  <span className="sr-only">Add document</span>*/}
-            {/*</Button>*/}
           </div>
-          <div className="mt-4 space-y-4">
+          {filesToUpload.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-md font-bold">Files to be uploaded:</h4>
+              <div className="max-h-40 overflow-y-auto">
+                {filesToUpload.map((file, index) => (
+                  <div className="flex items-center gap-3" key={index}>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                      <FileIcon className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium">{file.name}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button onClick={handleUpload} className="mt-2">Upload Files</Button>
+            </div>
+          )}
+          {uploadStatus === 'inProgress' && (
+            <div className="mt-4 text-blue-500">
+              Upload in progress...
+            </div>
+          )}
+          {uploadStatus === 'success' && (
+            <div className="mt-4 text-green-500">
+              Documents uploaded successfully!
+            </div>
+          )}
+          {uploadStatus === 'error' && (
+            <div className="mt-4 text-red-500">
+              Error uploading documents.
+            </div>
+          )}
+          <div className="mt-4 space-y-4 max-h-60 overflow-y-auto">
+            <h3 className="text-lg font-bold">Uploaded Documents</h3>
             {documents.map((doc, index) => (
               <div className="flex items-center gap-3" key={index}>
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
@@ -169,22 +200,6 @@ const ChatPage = () => {
               </div>
             ))}
           </div>
-          {filesToUpload.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-md font-bold">Files to be uploaded:</h4>
-              {filesToUpload.map((file, index) => (
-                <div className="flex items-center gap-3" key={index}>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
-                    <FileIcon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium">{file.name}</div>
-                  </div>
-                </div>
-              ))}
-              <Button onClick={handleUpload}>Upload Files</Button>
-            </div>
-          )}
         </div>
       </div>
       <div className="max-w-2xl w-full sticky bottom-0 mx-auto py-2 flex flex-col gap-1.5 px-4 bg-background">
@@ -216,7 +231,6 @@ const ChatPage = () => {
     </div>
   );
 };
-
 function ArrowUpIcon(props) {
   return (
     <svg
