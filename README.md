@@ -1,8 +1,10 @@
 # Bumble Investors Q&A Portal with RAG
 
-Portal URL - http://localhost:3000/
+Sample application http://3.128.37.107:3000/
 
-ChromaDB URL - http://localhost:8000/
+Local Portal URL - http://localhost:3000/
+
+Local ChromaDB URL - http://localhost:8000/
 
 ## Features
 
